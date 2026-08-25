@@ -1,0 +1,36 @@
+name: Sync from nyx-os
+
+# Publish the xbm package recipes that live in the nyx-os monorepo (user/pkg/*)
+# into this ports tree, so new ports appear here as the OS gains them. Runs once
+# a day and on demand.
+on:
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pull package recipes from nyx-os
+        run: |
+          rm -rf _nyxos
+          git clone --depth 1 https://github.com/nyxos-dev/nyx-os _nyxos
+          rm -rf packages && mkdir -p packages
+          cp -r _nyxos/user/pkg/* packages/
+          rm -rf _nyxos
+      - name: Commit if changed
+        run: |
+          git config user.name  "kazah-png"
+          git config user.email "kazah.png@proton.me"
+          git add -A packages
+          if git diff --cached --quiet; then
+            echo "already up to date"
+          else
+            git commit -m "sync: refresh package recipes from nyx-os"
+            git push
+          fi
