@@ -59,3 +59,5 @@ the path toward installing straight from this tree.
 | `greet` | minimal sample; runs by bare name from `/mnt/bin` |
 | `hello` | sample that prints and returns an exit code |
 | `ncc`   | a tiny C-adjacent demo built in-OS |
+| `pwgen` | strong random passwords / keys from the kernel CSPRNG (unbiased, rejection-sampled) |
+| `cowsay` | the classic ASCII cow that says your message |
