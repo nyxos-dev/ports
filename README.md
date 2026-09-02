@@ -61,3 +61,4 @@ the path toward installing straight from this tree.
 | `ncc`   | a tiny C-adjacent demo built in-OS |
 | `pwgen` | strong random passwords / keys from the kernel CSPRNG (unbiased, rejection-sampled) |
 | `cowsay` | the classic ASCII cow that says your message |
+| `unimatrix` | falling "Matrix" glyph rain in the terminal (bounded frames, seedable) |
