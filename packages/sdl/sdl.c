@@ -20,26 +20,11 @@
 #include <string.h>
 #include <stdint.h>
 
-#include "sdl.h"
-
 static int canvas_w;
 static int canvas_h;
 static uint32_t *canvas;
 
-void canvas_create(int width, int height)
-{
-    canvas_w = width;
-    canvas_h = height;
-    canvas = calloc((size_t)canvas_w * (size_t)canvas_h, sizeof(uint32_t));
-}
-
-void canvas_free(void)
-{
-    free(canvas);
-    canvas = NULL;
-}
-
-void put_pixel(int x, int y, uint32_t color)
+static void put_pixel(int x, int y, uint32_t color)
 {
     if (x < 0 || y < 0 || x >= canvas_w || y >= canvas_h)
         return;
@@ -47,7 +32,7 @@ void put_pixel(int x, int y, uint32_t color)
     canvas[y * canvas_w + x] = color;
 }
 
-void fill_rect(int x, int y, int w, int h, uint32_t color)
+static void fill_rect(int x, int y, int w, int h, uint32_t color)
 {
     int row, col;
 
@@ -60,7 +45,7 @@ void fill_rect(int x, int y, int w, int h, uint32_t color)
     }
 }
 
-void write_ppm(FILE *out)
+static void write_ppm(FILE *out)
 {
     int i;
 
@@ -76,12 +61,12 @@ void write_ppm(FILE *out)
     }
 }
 
-static int parse_size(const char *arg, int *w, int *h)
+static int parse_size(const char *arg)
 {
-    if (sscanf(arg, "%dx%d", w, h) != 2)
+    if (sscanf(arg, "%dx%d", &canvas_w, &canvas_h) != 2)
         return -1;
 
-    if (*w <= 0 || *h <= 0)
+    if (canvas_w <= 0 || canvas_h <= 0)
         return -1;
 
     return 0;
@@ -109,7 +94,7 @@ static int run_command(const char *arg)
 
 int main(int argc, char **argv)
 {
-    int i, w, h;
+    int i;
 
     if (argc < 2)
     {
@@ -117,13 +102,13 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    if (parse_size(argv[1], &w, &h) != 0)
+    if (parse_size(argv[1]) != 0)
     {
         fprintf(stderr, "sdl: bad size '%s', expected WxH\n", argv[1]);
         return 1;
     }
 
-    canvas_create(w, h);
+    canvas = calloc((size_t)canvas_w * (size_t)canvas_h, sizeof(uint32_t));
     if (canvas == NULL)
     {
         fprintf(stderr, "sdl: out of memory\n");
@@ -138,12 +123,12 @@ int main(int argc, char **argv)
         if (run_command(argv[i]) != 0)
         {
             fprintf(stderr, "sdl: bad command '%s'\n", argv[i]);
-            canvas_free();
+            free(canvas);
             return 1;
         }
     }
 
     write_ppm(stdout);
-    canvas_free();
+    free(canvas);
     return 0;
 }
