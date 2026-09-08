@@ -57,6 +57,8 @@ void sadd(nyx_i64* st, nyx_i64 ss, nyx_i64 sl, nyx_i64 nf, nyx_i64 fst, nyx_i64 
 nyx_i64 sfind(nyx_u8* p, nyx_i64* st, nyx_i64 ss, nyx_i64 sl);
 T sfty(nyx_i64* st, nyx_i64 si, nyx_i64 q);
 nyx_bool tyown(nyx_u8* p, nyx_i64* st, T t);
+nyx_bool typtrown(nyx_u8* p, nyx_i64* st, T t);
+void eptrown(nyx_u8* p, nyx_i64* st, T t, nyx_i64 ns, nyx_i64 nl);
 void eadd(nyx_i64* st, nyx_i64 ss, nyx_i64 sl, nyx_i64 nv, nyx_i64 vst);
 nyx_i64 efind(nyx_u8* p, nyx_i64* st, nyx_i64 ss, nyx_i64 sl);
 nyx_i64 vfindx(nyx_u8* p, nyx_i64* st, nyx_i64 ei, nyx_i64 vs, nyx_i64 vl);
@@ -70,6 +72,7 @@ void vadd(nyx_i64* st, nyx_i64 ss, nyx_i64 sl, nyx_i64 m, T t);
 T vty(nyx_i64* st, nyx_i64 v);
 nyx_i64 vfind(nyx_u8* p, nyx_i64* st, nyx_i64 ss, nyx_i64 sl);
 nyx_bool mpathok(nyx_i64* st, nyx_i64 b);
+nyx_bool mpointee(nyx_i64* st, nyx_i64 b);
 void mpath(nyx_u8* p, nyx_i64* st, nyx_i64 b, nyx_i64 root);
 void mplace(nyx_u8* p, nyx_i64* st, nyx_i64 b, nyx_i64 root);
 void cmove(nyx_u8* p, nyx_i64* st, nyx_i64 i, nyx_i64 ln);
@@ -114,7 +117,7 @@ nyx_i64 pinterp(nyx_u8* p, nyx_i64 n, nyx_i64* st);
 nyx_i64 pprimary(nyx_u8* p, nyx_i64 n, nyx_i64* st);
 nyx_i64 ppostfix(nyx_u8* p, nyx_i64 n, nyx_i64* st);
 nyx_i64 ppostfix_tail(nyx_u8* p, nyx_i64 n, nyx_i64* st, nyx_i64 h0);
-nyx_i64 pfield_or_call(nyx_u8* p, nyx_i64 n, nyx_i64* st, nyx_i64 base, nyx_i64 fs, nyx_i64 fl);
+nyx_i64 pfield_or_call(nyx_u8* p, nyx_i64 n, nyx_i64* st, nyx_i64 base, nyx_i64 fs, nyx_i64 fl, nyx_i64 dl);
 nyx_i64 punary(nyx_u8* p, nyx_i64 n, nyx_i64* st);
 nyx_i64 pcast(nyx_u8* p, nyx_i64 n, nyx_i64* st);
 nyx_i64 pmul(nyx_u8* p, nyx_i64 n, nyx_i64* st);
@@ -161,6 +164,7 @@ void gpre(nyx_u8* p, nyx_i64* st, nyx_i64 i, nyx_i64 d);
 void gexpr(nyx_u8* p, nyx_i64* st, nyx_i64 i);
 void gtry(nyx_u8* p, nyx_i64* st, nyx_i64 i, nyx_i64 d, nyx_i64 form);
 void gmove(nyx_u8* p, nyx_i64* st, nyx_i64 i);
+void gpremark(nyx_u8* p, nyx_i64* st, nyx_i64 i);
 void gpath(nyx_u8* p, nyx_i64* st);
 void gfdrops(nyx_u8* p, nyx_i64* st, nyx_i64 si, nyx_i64 d);
 void gheld(nyx_u8* p, nyx_i64* st, nyx_i64 d);
@@ -908,6 +912,27 @@ nyx_bool tyown(nyx_u8* p, nyx_i64* st, T t) {
     return (sa[((si * 8) + 4)] == 1);
 }
 
+nyx_bool typtrown(nyx_u8* p, nyx_i64* st, T t) {
+    if (((t.l == 0) || (t.pt == 0))) {
+        return 0;
+    }
+    nyx_i64 si = sfind(p, st, t.s, t.l);
+    if ((si < 0)) {
+        return 0;
+    }
+    nyx_i64* sa = (nyx_i64*)(st[49]);
+    return (sa[((si * 8) + 4)] == 1);
+}
+
+void eptrown(nyx_u8* p, nyx_i64* st, T t, nyx_i64 ns, nyx_i64 nl) {
+    put(((nyx_str){" pointers to own type '", 23}));
+    put_span(p, t.s, t.l);
+    put(((nyx_str){"' are not allowed (in ", 22}));
+    put_span(p, ns, nl);
+    put(((nyx_str){")\n", 2}));
+    st[41] = 1;
+}
+
 void eadd(nyx_i64* st, nyx_i64 ss, nyx_i64 sl, nyx_i64 nv, nyx_i64 vst) {
     nyx_i64* ea = (nyx_i64*)(st[51]);
     nyx_i64 i = st[52];
@@ -1054,6 +1079,28 @@ nyx_bool mpathok(nyx_i64* st, nyx_i64 b) {
     if ((nd[(b * 8)] == 7)) {
         return mpathok(st, nd[((b * 8) + 1)]);
     }
+    if ((nd[(b * 8)] == 13)) {
+        nyx_i64 a = nd[((b * 8) + 1)];
+        nyx_i64 x = nd[((b * 8) + 2)];
+        if ((nd[(a * 8)] != 5)) {
+            return 0;
+        }
+        if ((nd[(x * 8)] == 1)) {
+            return 1;
+        }
+        return (nd[(x * 8)] == 5);
+    }
+    return 0;
+}
+
+nyx_bool mpointee(nyx_i64* st, nyx_i64 b) {
+    nyx_i64* nd = (nyx_i64*)(st[33]);
+    if ((nd[(b * 8)] == 7)) {
+        return mpointee(st, nd[((b * 8) + 1)]);
+    }
+    if ((nd[(b * 8)] == 13)) {
+        return mpathok(st, b);
+    }
     return 0;
 }
 
@@ -1065,6 +1112,24 @@ void mpath(nyx_u8* p, nyx_i64* st, nyx_i64 b, nyx_i64 root) {
             return;
         }
         put(((nyx_str){".", 1}));
+    }
+    if ((nd[(b * 8)] == 13)) {
+        nyx_i64 a = nd[((b * 8) + 1)];
+        nyx_i64 x = nd[((b * 8) + 2)];
+        put_span(p, nd[((a * 8) + 5)], nd[((a * 8) + 6)]);
+        put(((nyx_str){"[", 1}));
+        if ((nd[(x * 8)] == 1)) {
+            nyx_i64 v = nd[((x * 8) + 1)];
+            char __b0[256];
+            nyx_str __s0 = __nyx_fmt_begin(__b0, 256);
+            __nyx_fmt_i64(&__s0, __b0, 256, (nyx_i64)(v));
+            put(__s0);
+        }
+        if ((nd[(x * 8)] == 5)) {
+            put_span(p, nd[((x * 8) + 5)], nd[((x * 8) + 6)]);
+        }
+        put(((nyx_str){"]", 1}));
+        return;
     }
     put_span(p, nd[((b * 8) + 5)], nd[((b * 8) + 6)]);
 }
@@ -1096,11 +1161,20 @@ void cmove(nyx_u8* p, nyx_i64* st, nyx_i64 i, nyx_i64 ln) {
             __nyx_fmt_str(&__s0, __b0, 256, (nyx_str){": cannot move field '", 21});
             put(__s0);
             put_span(p, nd[((i * 8) + 5)], nd[((i * 8) + 6)]);
-            put(((nyx_str){"' out of own value '", 20}));
-            mplace(p, st, b, 0);
-            put(((nyx_str){"' \342\200\224 consume '", 15}));
-            mplace(p, st, b, 1);
-            put(((nyx_str){"' as a whole (v0.25)\n", 21}));
+            if (mpointee(st, b)) {
+                put(((nyx_str){"' out of the pointee '", 22}));
+                mplace(p, st, b, 0);
+                put(((nyx_str){"' \342\200\224 take it as a whole first, e := ", 37}));
+                mplace(p, st, b, 1);
+                put(((nyx_str){" (v0.26)\n", 9}));
+            }
+            if (!(mpointee(st, b))) {
+                put(((nyx_str){"' out of own value '", 20}));
+                mplace(p, st, b, 0);
+                put(((nyx_str){"' \342\200\224 consume '", 15}));
+                mplace(p, st, b, 1);
+                put(((nyx_str){"' as a whole (v0.25)\n", 21}));
+            }
             st[41] = 1;
         }
         return;
@@ -2214,6 +2288,7 @@ nyx_i64 ppostfix(nyx_u8* p, nyx_i64 n, nyx_i64* st) {
         nyx_i64 nl = st[27];
         nyx_i64 ln = st[25];
         adv(p, n, st);
+        nyx_i64 dl = st[25];
         adv(p, n, st);
         if (!(ck(st, 7))) {
             perr(st);
@@ -2267,7 +2342,7 @@ nyx_i64 ppostfix(nyx_u8* p, nyx_i64 n, nyx_i64* st) {
             return ppostfix_tail(p, n, st, el);
         }
         nyx_i64 base = nnew(st, 5, 0, 0, 0, ln, ns, nl);
-        nyx_i64 h = pfield_or_call(p, n, st, base, fs, fl);
+        nyx_i64 h = pfield_or_call(p, n, st, base, fs, fl, dl);
         return ppostfix_tail(p, n, st, h);
     }
     nyx_i64 h2 = pprimary(p, n, st);
@@ -2280,6 +2355,7 @@ nyx_i64 ppostfix_tail(nyx_u8* p, nyx_i64 n, nyx_i64* st, nyx_i64 h0) {
     while (going) {
         going = 0;
         if (ck(st, 68)) {
+            nyx_i64 dl = st[25];
             adv(p, n, st);
             if (!(ck(st, 7))) {
                 perr(st);
@@ -2288,7 +2364,7 @@ nyx_i64 ppostfix_tail(nyx_u8* p, nyx_i64 n, nyx_i64* st, nyx_i64 h0) {
             nyx_i64 fs = st[26];
             nyx_i64 fl = st[27];
             adv(p, n, st);
-            h = pfield_or_call(p, n, st, h, fs, fl);
+            h = pfield_or_call(p, n, st, h, fs, fl, dl);
             going = 1;
             continue;
         }
@@ -2338,7 +2414,7 @@ nyx_i64 ppostfix_tail(nyx_u8* p, nyx_i64 n, nyx_i64* st, nyx_i64 h0) {
     return h;
 }
 
-nyx_i64 pfield_or_call(nyx_u8* p, nyx_i64 n, nyx_i64* st, nyx_i64 base, nyx_i64 fs, nyx_i64 fl) {
+nyx_i64 pfield_or_call(nyx_u8* p, nyx_i64 n, nyx_i64* st, nyx_i64 base, nyx_i64 fs, nyx_i64 fl, nyx_i64 dl) {
     if (ck(st, 37)) {
         nyx_i64 ln = st[25];
         nyx_i64 fld = nnew(st, 7, base, 0, 0, ln, fs, fl);
@@ -2367,8 +2443,7 @@ nyx_i64 pfield_or_call(nyx_u8* p, nyx_i64 n, nyx_i64* st, nyx_i64 base, nyx_i64 
         }
         return nnew(st, 6, fld, ast, na, ln, 0, 0);
     }
-    nyx_i64 ln2 = st[25];
-    return nnew(st, 7, base, 0, 0, ln2, fs, fl);
+    return nnew(st, 7, base, 0, 0, dl, fs, fl);
 }
 
 nyx_i64 punary(nyx_u8* p, nyx_i64 n, nyx_i64* st) {
@@ -5152,7 +5227,7 @@ void cblock(nyx_u8* p, nyx_i64* st, nyx_i64 i) {
     nyx_i64 t = nd[((i * 8) + 2)];
     if ((t > 0)) {
         cexpr(p, st, t);
-        cmove(p, st, t, 0);
+        cmove(p, st, t, nd[((t * 8) + 4)]);
     }
     cdrops(p, st, vsave);
     nyx_i64 s2 = nd[((i * 8) + 1)];
@@ -5304,6 +5379,10 @@ void cdecls(nyx_u8* p, nyx_i64* st) {
     while ((si2 < st[50])) {
         nyx_i64 q = 0;
         while ((q < sa[((si2 * 8) + 2)])) {
+            if (typtrown(p, st, sfty(st, si2, q))) {
+                eptrown(p, st, sfty(st, si2, q), sa[(si2 * 8)], sa[((si2 * 8) + 1)]);
+                return;
+            }
             if ((tyown(p, st, sfty(st, si2, q)) && (sa[((si2 * 8) + 4)] != 1))) {
                 nyx_i64 r = (sa[((si2 * 8) + 3)] + (q * 6));
                 put(((nyx_str){" own type in field '", 20}));
@@ -5322,8 +5401,16 @@ void cdecls(nyx_u8* p, nyx_i64* st) {
     nyx_i64 fi2 = 0;
     while ((fi2 < st[38])) {
         if ((ft2[((fi2 * 8) + 6)] == 0)) {
+            if (typtrown(p, st, frty(st, fi2))) {
+                eptrown(p, st, frty(st, fi2), ft2[(fi2 * 8)], ft2[((fi2 * 8) + 1)]);
+                return;
+            }
             nyx_i64 q2 = 0;
             while ((q2 < ft2[((fi2 * 8) + 2)])) {
+                if (typtrown(p, st, fpty(st, fi2, q2))) {
+                    eptrown(p, st, fpty(st, fi2, q2), ft2[(fi2 * 8)], ft2[((fi2 * 8) + 1)]);
+                    return;
+                }
                 if (tyown(p, st, fpty(st, fi2, q2))) {
                     put(((nyx_str){" own type in syscall '", 22}));
                     put_span(p, ft2[(fi2 * 8)], ft2[((fi2 * 8) + 1)]);
@@ -5336,6 +5423,24 @@ void cdecls(nyx_u8* p, nyx_i64* st) {
         }
         fi2 = (fi2 + 1);
     }
+    nyx_i64 fi3 = 0;
+    while ((fi3 < st[38])) {
+        if ((ft2[((fi3 * 8) + 6)] == 1)) {
+            if (typtrown(p, st, frty(st, fi3))) {
+                eptrown(p, st, frty(st, fi3), ft2[(fi3 * 8)], ft2[((fi3 * 8) + 1)]);
+                return;
+            }
+            nyx_i64 q3 = 0;
+            while ((q3 < ft2[((fi3 * 8) + 2)])) {
+                if (typtrown(p, st, fpty(st, fi3, q3))) {
+                    eptrown(p, st, fpty(st, fi3, q3), ft2[(fi3 * 8)], ft2[((fi3 * 8) + 1)]);
+                    return;
+                }
+                q3 = (q3 + 1);
+            }
+        }
+        fi3 = (fi3 + 1);
+    }
     nyx_i64* ea = (nyx_i64*)(st[51]);
     nyx_i64 ei = 0;
     while ((ei < st[52])) {
@@ -5346,6 +5451,10 @@ void cdecls(nyx_u8* p, nyx_i64* st) {
             while ((f2 < al[(vb + 2)])) {
                 nyx_i64 r2 = (al[(vb + 3)] + (f2 * 6));
                 T t2 = ((T){.pt = al[(r2 + 2)], .us = al[(r2 + 3)], .s = al[(r2 + 4)], .l = al[(r2 + 5)]});
+                if (typtrown(p, st, t2)) {
+                    eptrown(p, st, t2, ea[(ei * 4)], ea[((ei * 4) + 1)]);
+                    return;
+                }
                 if (tyown(p, st, t2)) {
                     put(((nyx_str){" own type in variant '", 22}));
                     put_span(p, ea[(ei * 4)], ea[((ei * 4) + 1)]);
@@ -5380,6 +5489,18 @@ void cdecls(nyx_u8* p, nyx_i64* st) {
             put(((nyx_str){"' \342\200\224 by-value self would move the receiver (v0.17)\n", 52}));
             st[41] = 1;
             return;
+        }
+        if (typtrown(p, st, mrty(st, mi))) {
+            eptrown(p, st, mrty(st, mi), ma[((mi * 8) + 2)], ma[((mi * 8) + 3)]);
+            return;
+        }
+        nyx_i64 q6 = 0;
+        while ((q6 < ma[((mi * 8) + 4)])) {
+            if (typtrown(p, st, mpty(st, mi, q6))) {
+                eptrown(p, st, mpty(st, mi, q6), ma[((mi * 8) + 2)], ma[((mi * 8) + 3)]);
+                return;
+            }
+            q6 = (q6 + 1);
         }
         mi = (mi + 1);
     }
@@ -6505,6 +6626,60 @@ void gmove(nyx_u8* p, nyx_i64* st, nyx_i64 i) {
     }
 }
 
+void gpremark(nyx_u8* p, nyx_i64* st, nyx_i64 i) {
+    if ((i == 0)) {
+        return;
+    }
+    nyx_i64* nd = (nyx_i64*)(st[33]);
+    nyx_i64* al = (nyx_i64*)(st[35]);
+    nyx_i64 k = nd[(i * 8)];
+    if ((k == 4)) {
+        nyx_i64 q0 = 0;
+        while ((q0 < nd[((i * 8) + 2)])) {
+            gpremark(p, st, al[((nd[((i * 8) + 1)] + (q0 * 8)) + 2)]);
+            q0 = (q0 + 1);
+        }
+        return;
+    }
+    if ((k == 6)) {
+        gpremark(p, st, nd[((i * 8) + 1)]);
+        nyx_i64 q = 0;
+        while ((q < nd[((i * 8) + 3)])) {
+            gpremark(p, st, al[(nd[((i * 8) + 2)] + q)]);
+            gmove(p, st, al[(nd[((i * 8) + 2)] + q)]);
+            q = (q + 1);
+        }
+        return;
+    }
+    if ((((k == 7) || (k == 8)) || (k == 10))) {
+        gpremark(p, st, nd[((i * 8) + 1)]);
+        return;
+    }
+    if (((k == 9) || (k == 13))) {
+        gpremark(p, st, nd[((i * 8) + 1)]);
+        gpremark(p, st, nd[((i * 8) + 2)]);
+        return;
+    }
+    if ((k == 11)) {
+        nyx_i64 q4 = 0;
+        while ((q4 < nd[((i * 8) + 3)])) {
+            nyx_i64 r4 = (nd[((i * 8) + 1)] + (q4 * 3));
+            gpremark(p, st, al[(r4 + 2)]);
+            gmove(p, st, al[(r4 + 2)]);
+            q4 = (q4 + 1);
+        }
+        return;
+    }
+    if ((k == 12)) {
+        nyx_i64 q5 = 0;
+        while ((q5 < nd[((i * 8) + 3)])) {
+            nyx_i64 r5 = (nd[((i * 8) + 1)] + (q5 * 3));
+            gpremark(p, st, al[(r5 + 2)]);
+            q5 = (q5 + 1);
+        }
+    }
+}
+
 void gpath(nyx_u8* p, nyx_i64* st) {
     nyx_i64* ps = (nyx_i64*)(st[70]);
     nyx_i64 k = 0;
@@ -6713,6 +6888,7 @@ void gstmt(nyx_u8* p, nyx_i64* st, nyx_i64 i, nyx_i64 d) {
         return;
     }
     if ((k == 22)) {
+        gpremark(p, st, nd[((i * 8) + 1)]);
         gmove(p, st, nd[((i * 8) + 1)]);
         nyx_i64 pnd = gpend(p, st, 0);
         if ((((st[59] > 0) || (pnd == 1)) && (nd[((i * 8) + 1)] > 0))) {
@@ -7135,6 +7311,7 @@ void gblock(nyx_u8* p, nyx_i64* st, nyx_i64 b, nyx_i64 d, nyx_i64 ftail) {
         if ((((ftail == 1) && (rt.l > 0)) && !(nvr))) {
             rets = 1;
         }
+        gpremark(p, st, t);
         gmove(p, st, t);
         nyx_i64 pnd2 = gpend(p, st, 0);
         if (((rets == 1) && ((st[59] > 0) || (pnd2 == 1)))) {

@@ -797,6 +797,7 @@ static Expr* parse_postfix(void) {
     Expr* e = parse_primary();
     for (;;) {
         if (pchk(T_DOT)) {
+            int dline = CUR.line;
             padv();
             Tok f = pexp(T_IDENT, "field name");
             if (pchk(T_LP)) {                   /* method call: recv.m(args) */
@@ -844,6 +845,9 @@ static Expr* parse_postfix(void) {
             }
             Expr* fe = newe(E_FIELD);
             fe->base = e; fe->field = f.s;
+            fe->line = dline;             /* the `.` line: where the access is written,
+                                           * so a refused move of a block's tail is
+                                           * reported there and not at the `}` after it */
             e = fe;
             continue;
         }
@@ -1482,12 +1486,24 @@ static Ty infer_type(Expr* e);
 
 /* v0.25: the PLACE a refused field move names — a binding, or a field
  * chain rooted in one, spelled as written (`o.p`, `__self.env`); anything
- * else (a call's result, an index) stays "an own value". `*root` receives
- * the binding the chain hangs from: the value to consume as a whole. */
-static const char* expr_place(Expr* e, const char** root) {
+ * else (a call's result, a computed index) stays "an own value". `*root`
+ * receives the binding the chain hangs from: the value to consume as a
+ * whole. v0.26: a chain may hang from a POINTEE instead — `p[0]`, a name
+ * indexed by a literal or a name, the cell an own value sits in behind a
+ * cast-born pointer — spelled as written too; `*pointee` says so, and the
+ * fix is then a take (`e := p[0]`), not a consume. */
+static const char* expr_place(Expr* e, const char** root, int* pointee) {
     if (e->k == E_PATH) { *root = e->name; return e->name; }
+    if (e->k == E_INDEX && e->l->k == E_PATH && (e->r->k == E_INT || e->r->k == E_PATH)) {
+        char* s = xmalloc(strlen(e->l->name) + (e->r->k == E_PATH ? strlen(e->r->name) : 24) + 3);
+        if (e->r->k == E_INT) sprintf(s, "%s[%ld]", e->l->name, (long)e->r->ival);
+        else sprintf(s, "%s[%s]", e->l->name, e->r->name);
+        *root = s;
+        *pointee = 1;
+        return s;
+    }
     if (e->k != E_FIELD) return NULL;
-    const char* b = expr_place(e->base, root);
+    const char* b = expr_place(e->base, root, pointee);
     if (!b) return NULL;
     char* s = xmalloc(strlen(b) + strlen(e->field) + 2);
     sprintf(s, "%s.%s", b, e->field);
@@ -1500,8 +1516,13 @@ static void own_move_expr(Expr* e, int line) {
                                            * the container is consumed as a whole */
         if (ty_is_own(infer_type(e))) {
             const char* root = "an own value";
-            const char* base = expr_place(e->base, &root);
+            int pointee = 0;
+            const char* base = expr_place(e->base, &root, &pointee);
             if (!base) base = root;
+            if (pointee)                  /* v0.26: the container is a cell behind a
+                                           * pointer — taken whole, then consumed */
+                die("%s:%d: cannot move field '%s' out of the pointee '%s' — take it as a whole first, e := %s (v0.26)",
+                    FILENAME, line, e->field, base, root);
             die("%s:%d: cannot move field '%s' out of own value '%s' — consume '%s' as a whole (v0.25)",
                 FILENAME, line, e->field, base, root);
         }
@@ -3060,7 +3081,8 @@ static void gen_block(Block* b, int ind, int fn_tail) {
     for (int i = 0; i < b->n; i++) gen_stmt(b->st[i], ind + 1);
     if (b->tail) {
         check_expr(b->tail);
-        own_move_expr(b->tail, 0);                /* v0.17: the tail consumes */
+        own_move_expr(b->tail, b->tail->line);    /* v0.17: the tail consumes — reported
+                                                   * at the tail's own line */
         int returns = fn_tail && CUR_RET.name && !is_never(CUR_RET);
         if (returns) {
             Ty vt = infer_type(b->tail);         /* tail value = return value */
