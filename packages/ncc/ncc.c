@@ -82,7 +82,8 @@
  *     aware moves (v0.18): if/else arms may consume, but both exits
  *     must agree (an arm ending in `return` is exempt); moves stay
  *     refused in loops (bodies AND while conditions — they re-run) and
- *     match arms; own values cannot nest in structs/enums, alias
+ *     match arms; own values cannot nest in plain structs/enums (an
+ *     own struct may hold own fields since v0.25), alias
  *     through pointers, cross into syscalls, ride match expressions,
  *     or appear in defers. Destructors (v0.19): #[drop(fn)] wires an
  *     ordinary consuming fn as the type's destructor — a LIVE value
