@@ -1,0 +1,3 @@
+name: nyxgen
+source: nyxgen.c
+bin: nyxgen
